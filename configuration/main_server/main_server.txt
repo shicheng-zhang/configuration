@@ -1,0 +1,190 @@
+🛠 HP DL360 G7 "IRONCLAD" OPERATING PROCEDURE
+
+Hardware: HP DL360 G7 | Dual Xeon | 72GB RAM | 3x 980GB SAS/SSD Target: Proxmox VE 8.x + ZFS + NAS + Dev Environment + Gaming
+STAGE 1: REMOTE MANAGEMENT (iLO 3)
+
+Don't sit in a cold server room. Use the Integrated Lights-Out (iLO) to manage the server from your laptop.
+
+    Physical Connection: Plug an ethernet cable into the dedicated iLO port (labeled on the back of the G7).
+
+    Assign IP: On boot, press [F8] during the iLO prompt.
+
+        Go to Network -> DNS/IP and set a Static IP (e.g., 192.168.1.49).
+
+    Login: From your laptop, go to https://192.168.1.49. Use the credentials found on the plastic tag hanging off the front/back of the server.
+
+    Thermal Strategy: In iLO Web Interface -> Power Management -> Fans, set to "Optimal Cooling". This prevents the "Jet Engine" noise unless the server actually gets hot.
+
+STAGE 2: BIOS & STORAGE (THE "TRICK")
+
+Since the P410i controller doesn't support ZFS natively, we must "force" it.
+2.1 BIOS Hardening
+
+    Boot -> [F9]
+
+    System Options -> Processor Options:
+
+        Intel VT-d: Enabled (Required for the Linux Mint VM to feel fast).
+
+        Hyperthreading: Enabled.
+
+    Power Management:
+
+        HP Power Profile: Maximum Performance.
+
+    Advanced Options:
+
+        Fan Service: Increased Cooling (if using high-performance SSDs).
+
+2.2 RAID "Tricking" (P410i)
+
+    Boot -> [F8] (Smart Array Prompt).
+
+    Create three separate RAID 0 Logical Drives, one for each physical disk.
+
+    Performance Fix: If your G7's battery is dead, your write speeds will be ~20MB/s. To fix this, after installing Proxmox, we will use a command to "Force" the cache.
+
+STAGE 3: PROXMOX VE 8 INSTALLATION
+
+    ISO Prep: Use Ventoy or Rufus (DD Mode) to burn the Proxmox 8 ISO to a USB.
+
+    Boot: Press [F11] on startup, select your USB.
+
+    Kernel Patch (If Installer Freezes):
+
+        When the Proxmox boot menu appears, highlight "Install Proxmox VE (Graphical)" and press [e].
+
+        Find the line starting with linux and add nomodeset to the end.
+
+        Press [Ctrl+X] to boot.
+
+    ZFS Config:
+
+        Target Disk -> Options.
+
+        Filesystem: zfs (RAIDZ-1).
+
+        Select sda, sdb, sdc.
+
+        ashift: 12.
+
+    Networking: Set IP to 192.168.1.50, Gateway to your router (192.168.1.1).
+
+STAGE 4: POST-INSTALL COMMANDS (COPY-PASTE)
+
+Once installed, open the Proxmox Shell (browser at https://192.168.1.50:8006).
+4.1 Force Write Cache (Override Dead Battery)
+
+If you don't have a working battery on your P410i card, run this to unlock SSD speeds:
+Bash
+
+apt update && apt install -y ssacli
+ssacli ctrl slot=0 modify ld=1 forcedwritecache=on
+ssacli ctrl slot=0 modify ld=2 forcedwritecache=on
+ssacli ctrl slot=0 modify ld=3 forcedwritecache=on
+
+4.2 Fix Repos & Update
+Bash
+
+rm /etc/apt/sources.list.d/pve-enterprise.list
+echo "deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription" > /etc/apt/sources.list.d/pve-no-subscription.list
+apt update && apt dist-upgrade -y
+
+4.3 RAM Management for 72GB
+
+We need to reserve RAM for your Programming and Game servers.
+Bash
+
+# Cap ZFS ARC to 8GB
+echo "options zfs zfs_arc_max=8589934592" > /etc/modprobe.d/zfs.conf
+update-initramfs -u && reboot
+
+STAGE 5: THE "STORAGE HUB" (NAS & PROGRAMMING)
+
+We use a Privileged LXC for easy permissions.
+
+    Download Template: local -> CT Templates -> Templates -> debian-12-standard.
+
+    Create Container: ID 100, Hostname Data-Hub, Password [your_pass].
+
+    Network: Static IP 192.168.1.51.
+
+    ZFS Bind Mount:
+
+        In Host Shell: zfs create rpool/data && chmod 777 /rpool/data
+
+        Add to CT: nano /etc/pve/lxc/100.conf
+
+        Append: mp0: /rpool/data,mp=/mnt/storage
+
+    Install Samba (NAS):
+
+        Inside CT 100 Shell:
+    Bash
+
+    apt update && apt install -y samba
+    # Create share folder
+    mkdir -p /mnt/storage/media /mnt/storage/projects
+    # Configure Samba
+    printf "[Storage]\n   path = /mnt/storage\n   writable = yes\n   guest ok = no\n" >> /etc/samba/smb.conf
+    smbpasswd -a root  # Use this to login from Windows
+    systemctl restart smbd
+
+STAGE 6: THE DAILY DRIVER (LINUX MINT VM)
+
+This is your Desktop Environment (DE) for home use.
+
+    Create VM: ID 105, Name Mint-Workstation.
+
+    CPU: 8 Cores, Type: Host (Essential for old Xeons to use all instructions).
+
+    Memory: 16GB, Uncheck Ballooning.
+
+    Display: Select VirtIO-GPU and set memory to 512MB.
+
+    Remote Access: Install xrdp inside Mint to use Windows Remote Desktop.
+    Bash
+
+    sudo apt update && sudo apt install xrdp -y
+    sudo adduser xrdp ssl-cert
+
+STAGE 7: PTERODACTYL (GAME HOSTING)
+
+Don't install this in an LXC; it's too messy with kernel modules. Use a VM.
+
+    Create VM: ID 110, Ubuntu 22.04, 4 Cores, 12GB RAM.
+
+    Auto-Installer:
+    Bash
+
+    bash <(curl -s https://pterodactyl-installer.se)
+
+        Choose Option 2 (Panel + Wings).
+
+        This script handles the database (MariaDB), Web Server (Nginx), and the game runner (Wings).
+
+    Login: Access http://192.168.1.110 to start creating Minecraft or Valheim servers.
+
+STAGE 8: GLOBAL ACCESS (TAILSCALE)
+
+This is how you access everything from "different wifi" securely.
+
+    Create LXC: ID 115, Ubuntu 22.04, 512MB RAM.
+
+    Passthrough TUN:
+
+        In Host Shell: nano /etc/pve/lxc/115.conf
+
+        Add:
+    Plaintext
+
+lxc.cgroup2.devices.allow: c 10:200 rwm
+lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
+
+Install Tailscale:
+
+    Inside CT 115: curl -fsSL https://tailscale.com/install.sh | sh
+
+    Authenticate: tailscale up --advertise-routes=192.168.1.0/24
+
+Admin Console: Log into Tailscale.com, find your device, and Enable Subnet Routes.
