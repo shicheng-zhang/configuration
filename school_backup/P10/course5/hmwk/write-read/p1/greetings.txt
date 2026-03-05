@@ -1,0 +1,3 @@
+Hello! Welcome to Python file handling.
+Have a great day!
+Keep learning Python.

@@ -1,0 +1,25 @@
+ ------------------------
+|   CCC    R  S          |
+|                        |
+|      MMM               |
+|                        |
+D                        D
+|                        |
+|   G                    |
+|                 P      |
+|      B                 |
+|            B           |
+ ------------------------
+
+ Room: The Shed
+
+M = LawnMower
+C = Cabinet
+R = Rake
+S = Shovel
+P = Pitchfork
+G = Garden Hose
+B = Bucket
+
+WASD to move, I to interact, Q to quit.
+Hint: You always asked your grandfather what made such a loud noise which was kept in the shed. He smiles and and mouths "Lawn".
