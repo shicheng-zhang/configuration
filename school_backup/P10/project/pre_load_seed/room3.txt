@@ -1,0 +1,31 @@
+ ---------------------------------
+|   SSS   TTTTT     111           |
+|         TTTTT                   |
+|                                 |
+|                         B       |
+D         TTT             B       D
+|CC       TTT             B       |
+|CC                       B       |
+|                                 |
+|                                 |
+|                                 |
+|          CC             FF      |
+|W         CC             FF      |
+|W         CC             FF      |
+|Y         CC                     |
+|Y                                |
+|                                 |
+ ---------------------------------
+
+Room: The Kitchen
+
+S = Stove
+C = Cabinet
+W = DishWasher
+Y = DrYer
+1 = Something you do not know
+B = Baskets
+F = Fridge
+
+WASD to move, I to interact, Q to quit.
+Hint: Your mother always said the large cabinet is where the good stuff is kept.
