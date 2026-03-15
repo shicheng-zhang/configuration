@@ -19,6 +19,7 @@ Plug 'ryanoasis/vim-devicons'
 Plug 'maxmellon/vim-jsx-pretty'
 Plug 'projekt0n/github-nvim-theme', { 'tag': 'v0.0.7' }
 Plug 'tmhedberg/matchit'
+Plug 'tikhomirov/vim-glsl'
 " Initialize plugin system
 call plug#end()
 
@@ -291,3 +292,4 @@ vnoremap <Esc>tC :call nerdcommenter#Comment(0, "toggle")<CR>
 
 nnoremap <D-/> :call NERDComment(0, "toggle")<CR>
 vnoremap <D-/> :call nerdcommenter#Comment(0, "toggle")<CR>
+
