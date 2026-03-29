@@ -13,7 +13,7 @@ set smarthome
 set positionlog
 set historylog
 set multibuffer
-set rebinddelete
+#set rebinddelete
 set mouse
 set constantshow
 
