@@ -1,145 +1,79 @@
-" =========================
-" Core Vim Behavior
-" =========================
-
+" ============================================================================
+" 1. PLUGINS (Uses vim-plug)
+" ============================================================================
 call plug#begin('~/.vim/plugged')
 
-Plug 'ycm-core/YouCompleteMe'
-Plug 'prabirshrestha/vim-lsp'
-Plug 'mattn/vim-lsp-settings'
+" The LSP and Autocomplete engine
+Plug 'neoclide/coc.nvim', {'branch': 'release'}
+
+" A lightweight, clean color scheme
+Plug 'joshdick/onedark.vim'
+
+" Status line at the bottom
+Plug 'vim-airline/vim-airline'
 
 call plug#end()
 
-nnoremap <C-Space> :call VSCodeNotify('editor.action.triggerSuggest')<CR>
-inoremap <C-Space> <Cmd>call VSCodeNotify('editor.action.triggerSuggest')<CR>
-inoremap <Tab> <Cmd>call VSCodeNotify('acceptSelectedSuggestion')<CR>
-inoremap <C-j> <Cmd>call VSCodeNotify('selectNextSuggestion')<CR>
-inoremap <C-k> <Cmd>call VSCodeNotify('selectPrevSuggestion')<CR>
-nnoremap <leader>. :call VSCodeNotify('editor.action.quickFix')<CR>
-nnoremap gd :call VSCodeNotify('editor.action.revealDefinition')<CR>
-nnoremap <leader>r :call VSCodeNotify('editor.action.rename')<CR>
-nnoremap <leader>f :call VSCodeNotify('editor.action.formatDocument')<CR>
+" ============================================================================
+" 2. BASIC QUALITY OF LIFE SETTINGS
+" ============================================================================
+syntax on
+colorscheme onedark
 
-set completeopt=menu,menuone,noselect
-set shortmess+=c
+set number          " Show line numbers
+set relativenumber  " Hybrid line numbers for easier jumping
+set hidden          " Allow switching buffers without saving
+set mouse=a         " Enable mouse support
+set signcolumn=yes  " Always show the sign column to prevent text shifting
 
-inoremap <C-Space> <C-x><C-o>
-
-set nocompatible
-set encoding=utf-8
-
-let g:ycm_auto_trigger = 1
-let g:ycm_min_num_of_chars_for_completion = 2
-
-" Use system clipboard (VS Code already does this, but safe)
-set clipboard=unnamedplus
-
-" Copy visual selection to Windows clipboard
-vnoremap <C-c> :w !clip.exe<CR><CR>
-
-" Paste Windows clipboard
-nnoremap <C-v> :r !powershell.exe -command Get-Clipboard<CR>
-inoremap <C-v> <Esc>:r !powershell.exe -command Get-Clipboard<CR>i
-
-let g:clipboard = {
-\   'name': 'WslClipboard',
-\   'copy': {
-\      '+': '/mnt/c/Windows/System32/clip.exe',
-\      '*': '/mnt/c/Windows/System32/clip.exe',
-\    },
-\   'paste': {
-\      '+': '/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -command Get-Clipboard',
-\      '*': '/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -command Get-Clipboard',
-\   },
-\   'cache_enabled': 0,
-\ }
-
-" Better backspace behavior
-set backspace=indent,eol,start
-
-" =========================
-" UI / Visuals (VS Code鈥搃sh)
-" =========================
-set number
-set relativenumber
-
-set cursorline
-set signcolumn=yes
-
-set nowrap
-set scrolloff=5
-set sidescrolloff=5
-
-set termguicolors
-set background=dark
-
-" =========================
-" Indentation (VS Code-like)
-" =========================
-set expandtab
+" Tab & Indent settings (Standard for Java/C++)
 set tabstop=4
 set shiftwidth=4
 set softtabstop=4
-set smartindent
+set expandtab
 set autoindent
+set backspace=indent,eol,start
 
-" =========================
-" Search Behavior
-" =========================
-set incsearch
-set hlsearch
-set ignorecase
-set smartcase
+" ============================================================================
+" 3. LSP & KEYMAPPINGS (coc.nvim)
+" ============================================================================
 
-nnoremap <Esc> :nohlsearch<CR>
+" Use Tab for trigger completion and navigate next complete item
+inoremap <silent><expr> <TAB>
+      \ coc#pum#visible() ? coc#pum#next(1) :
+      \ CheckBackspace() ? "\<Tab>" :
+      \ coc#refresh()
+inoremap <expr><S-TAB> coc#pum#visible() ? coc#pum#prev(1) : "\<C-h>"
 
-" =========================
-" Faster / Smoother
-" =========================
-set updatetime=300
-set timeoutlen=500
+" Make <CR> (Enter) to accept selected completion item
+inoremap <silent><expr> <CR> coc#pum#visible() ? coc#pum#confirm()
+                              \: "\<C-g>u\<CR>\<c-r>=coc#on_enter()\<CR>"
 
-" =========================
-" VS Code Friendly Keybinds
-" =========================
+function! CheckBackspace() abort
+  let col = col('.') - 1
+  return !col || getline('.')[col - 1]  =~# '\s'
+endfunction
 
-" Save like Ctrl+S
-nnoremap <C-s> :w<CR>
-inoremap <C-s> <Esc>:w<CR>a
+" GoTo code navigation
+nmap <silent> gd <Plug>(coc-definition)
+nmap <silent> gy <Plug>(coc-type-definition)
+nmap <silent> gi <Plug>(coc-implementation)
+nmap <silent> gr <Plug>(coc-references)
 
-" Undo / Redo feel natural
-nnoremap U <C-r>
+" Use K to show documentation in preview window
+nnoremap <silent> K :call ShowDocumentation()<CR>
 
-" Better line movement
-nnoremap J mzJ`z
+function! ShowDocumentation()
+  if CocAction('hasProvider', 'hover')
+    call CocActionAsync('doHover')
+  else
+    call feedkeys('K', 'in')
+  endif
+endfunction
 
-" Keep selection when indenting
-vnoremap < <gv
-vnoremap > >gv
+" Symbol renaming
+nmap <rn> <Plug>(coc-rename)
 
-" =========================
-" Window / Pane Navigation
-" =========================
-nnoremap <C-h> <C-w>h
-nnoremap <C-j> <C-w>j
-nnoremap <C-k> <C-w>k
-nnoremap <C-l> <C-w>l
-
-" =========================
-" Quality-of-Life
-" =========================
-
-" Yank to end of line like VS Code
-nnoremap Y y$
-
-" Make x not yank
-nnoremap x "_x
-
-" =========================
-" VSCodeVim Specific
-" =========================
-if exists('g:vscode')
-  " Let VS Code handle tabs, files, etc.
-  set noshowmode
-endif
-
+" Formatting selected code
+xmap <leader>f  <Plug>(coc-format-selected)
+nmap <leader>f  <Plug>(coc-format-selected)
