@@ -1,5 +1,0 @@
-Banana:5
-Kiwi: 8
-Guava: 8
-Raspberry:4
-Bananabread:4
