@@ -1,0 +1,146 @@
+## ════════════════════════════════════════════════════════════
+##  ~/.nanorc — nano, tuned for its real job
+##
+##  Tiering on this machine:
+##    neovim  -> personal dev (full IDE; see ~/.config/nvim)
+##    vim     -> school only  (see ~/.vimrc)
+##    nano    -> quick edits, sudo, remote/school boxes, emergencies
+##
+##  So this file does NOT try to make nano an IDE. It makes nano a
+##  comfortable, predictable quick-editor that matches the editing style
+##  of the vim/nvim configs (4-space indent, line numbers, unix line
+##  endings) without fighting nano's own interaction model.
+##
+##  Read AFTER /etc/nanorc (system defaults). Syntax highlighting is
+##  pulled in below so this file is self-sufficient if copied to a
+##  box whose /etc/nanorc is bare.
+## ════════════════════════════════════════════════════════════
+
+
+## ── Editing feel (match the vim/nvim style) ─────────────────
+
+## Indent new lines like the previous line — same as autoindent elsewhere.
+set autoindent
+
+## 4 spaces, spaces not tabs — mirrors tabstop/shiftwidth=4 + expandtab
+## in both ~/.vimrc and the Neovim options.
+set tabsize 4
+set tabstospaces
+
+## Ctrl+Right / Ctrl+Delete stop at the end of a word, not its start.
+set afterends
+
+## Smarter Home: first non-blank, then true start of line.
+set smarthome
+
+## Let an unmodified Backspace/Delete wipe a marked region cleanly.
+set zap
+
+## Mouse support (matches mouse=a in vim/nvim). Harmless on a console
+## without gpm; works in any real terminal emulator.
+set mouse
+
+
+## ── Reading & navigation ────────────────────────────────────
+
+## Line numbers down the left — you use these everywhere else.
+set linenumbers
+
+## Scrollbar on the right edge.
+set indicator
+
+## Always show the cursor position (x,y) in the status bar.
+set constantshow
+
+## Spread overlong lines across screen lines instead of scrolling
+## sideways. For the config files / prose / quick edits nano is for,
+## reading beats horizontal scroll. (nvim keeps wrap off for code —
+## that's nvim's job.)
+set softwrap
+
+## ...and wrap at blanks, not the raw screen edge, so wraps land on
+## word boundaries.
+set atblanks
+
+## Scroll a half-screen at a time instead of one line.
+set jumpyscrolling
+
+## Remember the cursor position per file, so reopening resumes where
+## you left off.
+set positionlog
+
+## Remember search/replace strings across the session.
+set historylog
+
+
+## ── Cleanliness & safety ────────────────────────────────────
+
+## Always write Unix line endings — no CRLF pollution, even if a file
+## arrived as DOS/Mac. Right call for school submissions and git.
+set unix
+
+## Vim-style lock files: warn if another editor (vim/nvim) already has
+## the file open. Handy given you bounce between all three editors.
+set locking
+
+## NOTE — crash recovery: nano has no swap-file equivalent. If nano
+## dies mid-edit, unsaved work is gone. There is no nanorc setting that
+## changes this, so nothing is faked here; just save often. (Contrast the
+## Neovim config, which deliberately keeps swap ON for exactly this.)
+
+
+## ── Syntax highlighting ─────────────────────────────────────
+
+## Pull in the system syntax definitions (42 languages: python, c, js,
+## go, rust, lua, sh, markdown, yaml, json, ...). /etc/nanorc includes
+## this too; re-including is a no-op and makes this file portable to
+## machines with a bare /etc/nanorc.
+include "/usr/share/nano/*.nanorc"
+
+## tabstospaces turns every Tab into spaces — which would break Makefiles,
+## where the recipe prefix MUST be a real tab. Force a real tab there.
+extendsyntax makefile tabgives "	"
+
+
+## ── Interface colours ───────────────────────────────────────
+## These are ANSI colour NAMES, so your terminal theme decides the exact
+## shade (they'll read as your palette's blue/green/etc — consistent with
+## the gruvbox / VSCode-dark look you use elsewhere). Syntax colours come
+## from the included .nanorc files; these are just the chrome.
+
+set titlecolor bold,white,blue
+set statuscolor bold,white,green
+set promptcolor lightwhite,grey
+set errorcolor bold,white,red
+set spotlightcolor black,lightyellow
+set selectedcolor lightwhite,magenta
+set numbercolor cyan
+set scrollercolor cyan
+set stripecolor ,yellow
+set keycolor cyan
+set functioncolor green
+
+
+## ── OPTIONAL: save with Ctrl+S (read this first) ────────────
+##
+## Your muscle memory from nvim is ^S = save, but in nano ^S is normally
+## XOFF flow-control and will FREEZE the terminal. This is a tty-layer
+## thing: a nanorc `bind` alone is NOT enough, because the terminal eats
+## ^S before nano ever sees it. To actually get ^S = save you must do BOTH:
+##
+##   1) Disable flow-control in the shell (persists for the session):
+##        stty -ixon
+##      (or make it permanent in the shell that launches nano)
+##   2) Then uncomment this line:
+##
+## bind ^S savefile main
+##
+## I've left it off by default so pressing ^S can't silently freeze a
+## school box you don't control. Nano's native save (^O, or ^X to exit
+## and save) always works with no setup. Flip the above on wherever you've
+## run `stty -ixon`.
+##
+## If you ever want the full "PC-style" remap (^C copy, ^V paste, ^Q quit,
+## ...), /etc/nanorc has a ready-made commented block for it at the bottom
+## — but note ^C/^V collide with terminal SIGINT/literal-insert, which is
+## why I don't enable it here.
