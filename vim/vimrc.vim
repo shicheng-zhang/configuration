@@ -33,6 +33,15 @@
 
 
 " ════════════════════════════════════════════════════════════
+"  LEADER  (must come FIRST)
+" ════════════════════════════════════════════════════════════
+" <leader> is expanded the moment a mapping is defined, so this MUST be set
+" before any `nnoremap <leader>...`. It used to sit ~440 lines below, which
+" silently bound every leader map defined above it to "\" instead of Space.
+let mapleader = " "
+let maplocalleader = " "
+
+" ════════════════════════════════════════════════════════════
 "  PLUGINS  (vim-plug)
 " ════════════════════════════════════════════════════════════
 call plug#begin('~/.vim/plugged')
@@ -67,7 +76,8 @@ Plug 'junegunn/fzf.vim'                 " :Files, :Rg, :Buffers, etc.
 
 " ── Syntax Highlighting ───────────────────────────────────
 Plug 'sheerun/vim-polyglot'             " 100+ language syntax packs
-Plug 'nvim-treesitter/nvim-treesitter'  " (Neovim only — skip if pure Vim)
+" (nvim-treesitter removed: it is a Lua/Neovim-only plugin and cannot run
+"  under Vim at all — it just wasted a clone in ~/.vim/plugged.)
 
 " ── Git Integration ───────────────────────────────────────
 Plug 'tpope/vim-fugitive'               " Full Git inside Vim
@@ -201,25 +211,34 @@ let g:NERDTreeDirArrowCollapsible = ''
 let g:NERDTreeIgnore = ['^\.git$', '^node_modules$', '^\.DS_Store$', '\.pyc$']
 let g:NERDTreeWinSize = 35
 
-" Auto-open NERDTree when opening a directory
-autocmd StdinReadPre * let s:std_in=1
-autocmd VimEnter * if argc() == 1 && isdirectory(argv()[0]) && !exists('s:std_in') |
-    \ execute 'NERDTree' argv()[0] | wincmd p | enew | execute 'cd '.argv()[0] | endif
+" Helpers (defined before the augroup below so the BufEnter autocmd can
+" call them). NERDTreeSyncFile was previously defined but never wired to
+" any event — dead code. It is now hooked to BufEnter.
+function! IsNERDTreeOpen()
+  return exists("t:NERDTreeBufName") && (bufwinnr(t:NERDTreeBufName) != -1)
+endfunction
 
-" Close Vim if NERDTree is the only window remaining
-autocmd BufEnter * if tabpagenr('$') == 1 && winnr('$') == 1 &&
-    \ exists('b:NERDTree') && b:NERDTree.isTabTree() | quit | endif
-
-" Sync NERDTree with current file
 function! NERDTreeSyncFile()
   if &modifiable && IsNERDTreeOpen() && strlen(expand('%')) > 0 && !&diff
     NERDTreeFind
     wincmd p
   endif
 endfunction
-function! IsNERDTreeOpen()
-  return exists("t:NERDTreeBufName") && (bufwinnr(t:NERDTreeBufName) != -1)
-endfunction
+
+" All NERDTree autocmds in one augroup so :source $MYVIMRC never duplicates
+" them (the same re-source bug fixed throughout the Neovim config).
+augroup nerdtree
+  autocmd!
+  " Auto-open NERDTree when opening a directory
+  autocmd StdinReadPre * let s:std_in=1
+  autocmd VimEnter * if argc() == 1 && isdirectory(argv()[0]) && !exists('s:std_in') |
+      \ execute 'NERDTree' argv()[0] | wincmd p | enew | execute 'cd '.argv()[0] | endif
+  " Close Vim if NERDTree is the only window remaining
+  autocmd BufEnter * if tabpagenr('$') == 1 && winnr('$') == 1 &&
+      \ exists('b:NERDTree') && b:NERDTree.isTabTree() | quit | endif
+  " Sync NERDTree with the current file
+  autocmd BufEnter * call NERDTreeSyncFile()
+augroup END
 
 
 " ════════════════════════════════════════════════════════════
@@ -304,13 +323,17 @@ nnoremap <silent><nowait> <leader>d  :<C-u>CocList diagnostics<CR>
 nnoremap <silent><nowait> <leader>s  :<C-u>CocList -I symbols<CR>
 
 " Highlight symbol and its references when cursor holds
-autocmd CursorHold * silent call CocActionAsync('highlight')
-
 " Format on save (like VSCode's "Format on Save")
-autocmd BufWritePre *.ts,*.tsx,*.js,*.jsx,*.py,*.rs,*.go silent! call CocAction('format')
-
 " Show signature help while typing function arguments
-autocmd User CocJumpPlaceholder call CocActionAsync('showSignatureHelp')
+" (augrouped so :source $MYVIMRC never stacks duplicate handlers — the same
+"  class of bug the Neovim config fixed. Format-on-save lives ONLY here, not
+"  also in coc-settings.json; see the note there.)
+augroup coc_setup
+  autocmd!
+  autocmd CursorHold * silent call CocActionAsync('highlight')
+  autocmd BufWritePre *.ts,*.tsx,*.js,*.jsx,*.py,*.rs,*.go silent! call CocAction('format')
+  autocmd User CocJumpPlaceholder call CocActionAsync('showSignatureHelp')
+augroup END
 
 " Floating window scroll
 nnoremap <silent><nowait><expr> <C-f> coc#float#has_scroll() ? coc#float#scroll(1) : "\<C-f>"
@@ -441,11 +464,30 @@ let g:ale_sign_error = 'E'
 let g:ale_sign_warning = 'W'
 let g:ale_echo_msg_format = '[%linter%] %s [%severity%]'
 let g:ale_fix_on_save = 0              " Use coc-prettier for formatting instead
-" Disable ALE for LSP languages managed by coc (avoid duplication)
-let g:ale_linters_ignore = {
-      \ 'typescript': ['tsserver'],
-      \ 'javascript': ['tsserver'],
-      \ 'python':     ['pyls', 'pylsp'],
+
+" coc.nvim already supplies LSP + linting (coc-eslint, coc-tsserver,
+" coc-pyright, ...) for every filetype below. An earlier ale_linters_ignore
+" list only excluded tsserver and pylsp, so eslint still ran in BOTH
+" coc-eslint and ALE — duplicate diagnostics and two node processes per
+" buffer. Setting ale_linters to [] fully disables ALE for those filetypes
+" (ale#linter#Get selects only the named linters, so an empty list runs
+" none). ALE stays active as a fallback for any other filetype, which is the
+" "backup" role this file originally intended.
+let g:ale_linters = {
+      \ 'typescript':      [],
+      \ 'javascript':      [],
+      \ 'typescriptreact': [],
+      \ 'javascriptreact': [],
+      \ 'python':          [],
+      \ 'json':            [],
+      \ 'html':            [],
+      \ 'css':             [],
+      \ 'yaml':            [],
+      \ 'go':              [],
+      \ 'rust':            [],
+      \ 'c':               [],
+      \ 'cpp':             [],
+      \ 'lua':             [],
       \ }
 
 
@@ -472,7 +514,7 @@ let g:startify_lists = [
 " ════════════════════════════════════════════════════════════
 "  KEY MAPPINGS  (VSCode muscle-memory)
 " ════════════════════════════════════════════════════════════
-let mapleader = " "                     " Space as leader (common modern choice)
+" (mapleader is set at the top of this file, before any <leader> mapping.)
 
 " ── File Explorer ─────────────────────────────────────────
 nnoremap <C-b> :NERDTreeToggle<CR>      " Ctrl+B  like VSCode
@@ -544,12 +586,17 @@ nnoremap <leader>z :only<CR>
 " ════════════════════════════════════════════════════════════
 "  MISC AUTO-COMMANDS
 " ════════════════════════════════════════════════════════════
-" Remove trailing whitespace on save
-autocmd BufWritePre * :%s/\s\+$//e
+" NOTE: the old "strip trailing whitespace on save" autocmd
+" (`autocmd BufWritePre * :%s/\s\+$//e`) is gone. It rewrote every file on
+" save without asking and jumped the cursor to the last match. The Neovim
+" config made the same call; whitespace cleanup should be deliberate.
 
 " Return to last edit position when opening files
-autocmd BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$")
-      \ | exe "normal! g'\"" | endif
+augroup restore_cursor
+  autocmd!
+  autocmd BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$")
+        \ | exe "normal! g'\"" | endif
+augroup END
 
 " Relative numbers only in normal mode (like VSCode)
 augroup numbertoggle
@@ -581,10 +628,10 @@ endif
 "   "inlayHint.enable": true,
 "   "codeLens.enable": true,
 "   "hover.autoHide": true,
-"   "coc.preferences.formatOnSaveFiletypes": [
-"     "javascript","typescript","typescriptreact","javascriptreact",
-"     "json","css","html","python","rust","go"
-"   ],
+"   "NOTE: format-on-save is deliberately NOT set here. It is handled by the
+"    BufWritePre autocmd in the COC section above (augroup coc_setup), so
+"    adding coc.preferences.formatOnSaveFiletypes would format every save
+"    twice. Remove the autocmd if you'd rather drive it from here.",
 "   "prettier.requireConfig": false,
 "   "typescript.updateImportsOnFileMove.enabled": "always",
 "   "javascript.updateImportsOnFileMove.enabled": "always"
